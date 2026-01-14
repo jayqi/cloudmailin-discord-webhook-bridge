@@ -48,12 +48,10 @@ function summarizeToDiscordContent(payload: any): string {
     .map((attachment: any) => attachment?.file_name)
     .filter((name: string | undefined) => name && name.trim().length > 0);
 
-  const lines = ["**CloudMailin inbound email**"];
+  const lines = [];
 
   if (from) lines.push(`From: \`${from}\``);
-  if (to) lines.push(`To: \`${to}\``);
-  if (subject) lines.push(`Subject: \`${subject}\``);
-  if (messageId) lines.push(`Message ID: \`${messageId}\``);
+  if (subject) lines.push(`Subject: **${subject}**`);
   if (date) lines.push(`Date: \`${date}\``);
 
   if (attachments.length > 0) {

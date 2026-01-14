@@ -63,11 +63,8 @@ Test with <span style="font-weight: bold;">HTML</span>.<br>
 } as const;
 
 const expectedDiscordContent = [
-	'**CloudMailin inbound email**',
 	'From: `Message Sender <sender@example.com>`',
-	'To: `Message Recipient<to@example.co.uk>`',
-	'Subject: `Test Subject`',
-	'Message ID: `<4F145791.8040802@example.com>`',
+	'Subject: **Test Subject**',
 	'Date: `Mon, 16 Jan 2012 17:00:01 +0000`',
 	'Attachments: `2` (file.txt, file.txt)',
 	'',

@@ -43,11 +43,8 @@ This worker expects the CloudMailin JSON POST format. It sends the `plain` field
 The Discord message includes key email headers plus as much of the `plain` body as fits. Example:
 
 ```
-**CloudMailin inbound email**
 From: `Message Sender <sender@example.com>`
-To: `Message Recipient<to@example.co.uk>`
-Subject: `Test Subject`
-Message ID: `<4F145791.8040802@example.com>`
+Subject: **Test Subject**
 Date: `Mon, 16 Jan 2012 17:00:01 +0000`
 Attachments: `2` (file.txt, file.txt)
 
