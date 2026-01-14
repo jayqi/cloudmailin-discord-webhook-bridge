@@ -38,6 +38,28 @@ https://user:password@<your-worker-domain>/webhooks/cloudmailin
 
 This worker expects the CloudMailin JSON POST format. It sends the `plain` field to Discord, truncating to 2,000 characters to satisfy Discord's message limit.
 
+## Discord message format
+
+The Discord message includes key email headers plus as much of the `plain` body as fits. Example:
+
+```
+**CloudMailin inbound email**
+From: `Message Sender <sender@example.com>`
+To: `Message Recipient<to@example.co.uk>`
+Subject: `Test Subject`
+Message ID: `<4F145791.8040802@example.com>`
+Date: `Mon, 16 Jan 2012 17:00:01 +0000`
+Attachments: `2` (file.txt, file.txt)
+
+Test with HTML.
+```
+
+If the `plain` body exceeds Discord's 2,000 character limit, the message is truncated and ends with:
+
+```
+[truncated]
+```
+
 ## Endpoints
 
 - `/health` — health check for the service
