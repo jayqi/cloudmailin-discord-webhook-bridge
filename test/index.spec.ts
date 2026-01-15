@@ -73,6 +73,7 @@ const expectedDiscordContent = [
 
 const BASIC_AUTH = 'user:mypass';
 const DISCORD_URL = 'https://discord.example/webhook';
+const DISCORD_URL_WITH_WAIT = 'https://discord.example/webhook?wait=true';
 const workerUrl = 'https://worker.example';
 
 const makeEnv = (): Env => ({
@@ -146,7 +147,7 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(response.status).toBe(200);
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 		expect(fetchSpy).toHaveBeenCalledWith(
-			DISCORD_URL,
+			DISCORD_URL_WITH_WAIT,
 			expect.objectContaining({
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },

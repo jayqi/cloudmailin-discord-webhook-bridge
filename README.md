@@ -53,6 +53,7 @@ Test with HTML.
 
 If the `plain` body exceeds Discord's 2,000 character limit, the worker sends multiple sequential Discord messages. Chunking happens on word boundaries when possible.
 When multiple messages are required, each message includes a part indicator after the header (and at the top of continuation messages), like `[part 1/3]`.
+Discord webhook requests are sent with `?wait=true` so the Worker waits for message creation before posting the next chunk.
 
 ## Endpoints
 

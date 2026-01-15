@@ -152,6 +152,9 @@ export default {
     }
 
     const contents = summarizeToDiscordContents(payload);
+    const discordUrl = new URL(env.DISCORD_WEBHOOK_URL);
+    discordUrl.searchParams.set("wait", "true");
+    const discordEndpoint = discordUrl.toString();
     for (const content of contents) {
       const discordPayload = {
         content,
@@ -159,7 +162,7 @@ export default {
         allowed_mentions: { parse: [] as string[] },
       };
 
-      const resp = await fetch(env.DISCORD_WEBHOOK_URL, {
+      const resp = await fetch(discordEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(discordPayload),
