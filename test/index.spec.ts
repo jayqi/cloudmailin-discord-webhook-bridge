@@ -194,4 +194,24 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(sentBodies[0].content.endsWith('word')).toBe(true);
 		expect(sentBodies[1].content.startsWith('[part 2/2]\nword')).toBe(true);
 	});
+
+	it('retries Discord requests when rate limited', async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ message: 'rate limited', retry_after: 0 }), {
+					status: 429,
+					headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+				}),
+			)
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		const request = buildAuthedRequest(samplePayload, BASIC_AUTH);
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, makeEnv(), ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+	});
 });

@@ -125,6 +125,61 @@ function summarizeToDiscordContents(payload: any): string[] {
   });
 }
 
+function backoffDelayMs(attempt: number): number {
+  const base = 500;
+  return Math.min(10000, base * 2 ** attempt);
+}
+
+async function parseRetryAfterMs(resp: Response): Promise<number | null> {
+  const header = resp.headers.get("Retry-After");
+  if (header) {
+    const seconds = Number(header);
+    if (!Number.isNaN(seconds)) return Math.max(0, seconds * 1000);
+    const dateMs = Date.parse(header);
+    if (!Number.isNaN(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+
+  try {
+    const body = await resp.clone().json();
+    const retryAfter = typeof body?.retry_after === "number" ? body.retry_after : null;
+    return retryAfter !== null ? Math.max(0, retryAfter * 1000) : null;
+  } catch {
+    return null;
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postToDiscordWithRetry(
+  url: string,
+  payload: { content: string; allowed_mentions: { parse: string[] } },
+  maxAttempts = 3
+): Promise<Response> {
+  let lastResponse: Response | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (resp.ok) return resp;
+    lastResponse = resp;
+
+    const shouldRetry = resp.status === 429 || resp.status >= 500;
+    if (!shouldRetry || attempt === maxAttempts - 1) return resp;
+
+    const retryAfterMs = await parseRetryAfterMs(resp);
+    const waitMs = retryAfterMs ?? backoffDelayMs(attempt);
+    if (waitMs > 0) await delay(waitMs);
+  }
+
+  return lastResponse ?? new Response("Discord error: unknown", { status: 502 });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -162,11 +217,7 @@ export default {
         allowed_mentions: { parse: [] as string[] },
       };
 
-      const resp = await fetch(discordEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(discordPayload),
-      });
+      const resp = await postToDiscordWithRetry(discordEndpoint, discordPayload);
 
       if (!resp.ok) {
         // Return non-2xx so CloudMailin retries webhook delivery
