@@ -73,6 +73,7 @@ const expectedDiscordContent = [
 
 const BASIC_AUTH = 'user:mypass';
 const DISCORD_URL = 'https://discord.example/webhook';
+const DISCORD_URL_WITH_WAIT = 'https://discord.example/webhook?wait=true';
 const workerUrl = 'https://worker.example';
 
 const makeEnv = (): Env => ({
@@ -146,7 +147,7 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(response.status).toBe(200);
 		expect(fetchSpy).toHaveBeenCalledTimes(1);
 		expect(fetchSpy).toHaveBeenCalledWith(
-			DISCORD_URL,
+			DISCORD_URL_WITH_WAIT,
 			expect.objectContaining({
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -172,11 +173,11 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(await response.text()).toBe('Discord error: 500');
 	});
 
-	it('truncates long plain bodies to the Discord limit', async () => {
+	it('splits long plain bodies into multiple Discord messages', async () => {
 		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
 		const longPayload = {
 			...samplePayload,
-			plain: 'a'.repeat(3000),
+			plain: 'word '.repeat(600),
 		};
 		const request = buildAuthedRequest(longPayload, BASIC_AUTH);
 		const ctx = createExecutionContext();
@@ -184,8 +185,49 @@ describe('CloudMailin inbound webhook bridge', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
-		const sentBody = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
-		expect(sentBody.content.length).toBeLessThanOrEqual(2000);
-		expect(sentBody.content).toContain('[truncated]');
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		const sentBodies = fetchSpy.mock.calls.map((call) => JSON.parse(call[1]?.body as string));
+		const contents = sentBodies.map((body) => body.content as string);
+		for (const content of contents) {
+			expect(content.length).toBeLessThanOrEqual(2000);
+		}
+		expect(contents[0]).toContain('[part 1/2]');
+		expect(contents[1]).toContain('[part 2/2]');
+
+		const markerRegex = /^\[part \d+\/\d+\]\n/;
+		const extractBody = (content: string, isFirst: boolean): string => {
+			if (!isFirst) return content.replace(markerRegex, '');
+			const [, ...rest] = content.split('\n\n');
+			const withoutHeader = rest.join('\n\n');
+			return withoutHeader.replace(markerRegex, '');
+		};
+
+		const combined = [
+			extractBody(contents[0], true),
+			extractBody(contents[1], false),
+		].join(' ');
+
+		const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim();
+		expect(normalize(combined)).toBe(normalize(longPayload.plain));
+	});
+
+	it('retries Discord requests when rate limited', async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockResolvedValueOnce(
+				new Response(JSON.stringify({ message: 'rate limited', retry_after: 0 }), {
+					status: 429,
+					headers: { 'Content-Type': 'application/json', 'Retry-After': '0' },
+				}),
+			)
+			.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+		const request = buildAuthedRequest(samplePayload, BASIC_AUTH);
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, makeEnv(), ctx);
+		await waitOnExecutionContext(ctx);
+
+		expect(response.status).toBe(200);
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
 	});
 });
