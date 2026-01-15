@@ -187,12 +187,28 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(response.status).toBe(200);
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 		const sentBodies = fetchSpy.mock.calls.map((call) => JSON.parse(call[1]?.body as string));
-		expect(sentBodies[0].content.length).toBeLessThanOrEqual(2000);
-		expect(sentBodies[1].content.length).toBeLessThanOrEqual(2000);
-		expect(sentBodies[0].content).toContain('[part 1/2]');
-		expect(sentBodies[1].content).toContain('[part 2/2]');
-		expect(sentBodies[0].content.endsWith('word')).toBe(true);
-		expect(sentBodies[1].content.startsWith('[part 2/2]\nword')).toBe(true);
+		const contents = sentBodies.map((body) => body.content as string);
+		for (const content of contents) {
+			expect(content.length).toBeLessThanOrEqual(2000);
+		}
+		expect(contents[0]).toContain('[part 1/2]');
+		expect(contents[1]).toContain('[part 2/2]');
+
+		const markerRegex = /^\[part \d+\/\d+\]\n/;
+		const extractBody = (content: string, isFirst: boolean): string => {
+			if (!isFirst) return content.replace(markerRegex, '');
+			const [, ...rest] = content.split('\n\n');
+			const withoutHeader = rest.join('\n\n');
+			return withoutHeader.replace(markerRegex, '');
+		};
+
+		const combined = [
+			extractBody(contents[0], true),
+			extractBody(contents[1], false),
+		].join(' ');
+
+		const normalize = (text: string): string => text.replace(/\s+/g, ' ').trim();
+		expect(normalize(combined)).toBe(normalize(longPayload.plain));
 	});
 
 	it('retries Discord requests when rate limited', async () => {
