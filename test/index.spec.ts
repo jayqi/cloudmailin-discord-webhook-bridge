@@ -172,11 +172,11 @@ describe('CloudMailin inbound webhook bridge', () => {
 		expect(await response.text()).toBe('Discord error: 500');
 	});
 
-	it('truncates long plain bodies to the Discord limit', async () => {
+	it('splits long plain bodies into multiple Discord messages', async () => {
 		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
 		const longPayload = {
 			...samplePayload,
-			plain: 'a'.repeat(3000),
+			plain: 'word '.repeat(600),
 		};
 		const request = buildAuthedRequest(longPayload, BASIC_AUTH);
 		const ctx = createExecutionContext();
@@ -184,8 +184,13 @@ describe('CloudMailin inbound webhook bridge', () => {
 		await waitOnExecutionContext(ctx);
 
 		expect(response.status).toBe(200);
-		const sentBody = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
-		expect(sentBody.content.length).toBeLessThanOrEqual(2000);
-		expect(sentBody.content).toContain('[truncated]');
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		const sentBodies = fetchSpy.mock.calls.map((call) => JSON.parse(call[1]?.body as string));
+		expect(sentBodies[0].content.length).toBeLessThanOrEqual(2000);
+		expect(sentBodies[1].content.length).toBeLessThanOrEqual(2000);
+		expect(sentBodies[0].content).toContain('[part 1/2]');
+		expect(sentBodies[1].content).toContain('[part 2/2]');
+		expect(sentBodies[0].content.endsWith('word')).toBe(true);
+		expect(sentBodies[1].content.startsWith('[part 2/2]\nword')).toBe(true);
 	});
 });

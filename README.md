@@ -36,7 +36,7 @@ Set the CloudMailin target URL to include basic auth:
 https://user:password@<your-worker-domain>/webhooks/cloudmailin
 ```
 
-This worker expects the CloudMailin JSON POST format. It sends the `plain` field to Discord, truncating to 2,000 characters to satisfy Discord's message limit.
+This worker expects the CloudMailin JSON POST format. It sends the `plain` field to Discord, splitting into multiple 2,000-character messages when needed.
 
 ## Discord message format
 
@@ -51,11 +51,8 @@ Attachments: `2` (file.txt, file.txt)
 Test with HTML.
 ```
 
-If the `plain` body exceeds Discord's 2,000 character limit, the message is truncated and ends with:
-
-```
-[truncated]
-```
+If the `plain` body exceeds Discord's 2,000 character limit, the worker sends multiple sequential Discord messages. Chunking happens on word boundaries when possible.
+When multiple messages are required, each message includes a part indicator after the header (and at the top of continuation messages), like `[part 1/3]`.
 
 ## Endpoints
 

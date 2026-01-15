@@ -33,7 +33,43 @@ function normalizeRecipients(value: unknown): string {
   return "";
 }
 
-function summarizeToDiscordContent(payload: any): string {
+function splitOnWordBoundary(text: string, maxLength: number): [string, string] {
+  if (text.length <= maxLength) return [text, ""];
+
+  let splitAt = maxLength;
+  for (let i = maxLength; i >= 0; i--) {
+    const ch = text[i];
+    if (ch === " " || ch === "\n" || ch === "\t") {
+      splitAt = i;
+      break;
+    }
+  }
+
+  const head = text.slice(0, splitAt).trimEnd();
+  const tail = text.slice(splitAt).trimStart();
+  if (head.length === 0) {
+    return [text.slice(0, maxLength), text.slice(maxLength)];
+  }
+
+  return [head, tail];
+}
+
+function splitPlainIntoChunks(plain: string, firstLimit: number, nextLimit: number): string[] {
+  const chunks: string[] = [];
+  let remaining = plain;
+  let limit = firstLimit;
+
+  while (remaining.length > 0) {
+    const [chunk, tail] = splitOnWordBoundary(remaining, limit);
+    chunks.push(chunk);
+    remaining = tail;
+    limit = nextLimit;
+  }
+
+  return chunks;
+}
+
+function summarizeToDiscordContents(payload: any): string[] {
   const headers = payload?.headers ?? {};
   const envelope = payload?.envelope ?? {};
 
@@ -69,21 +105,24 @@ function summarizeToDiscordContent(payload: any): string {
 
   const header = lines.join("\n");
   const maxLength = 2000;
+  const markerReserve = 15; // "[part 999/999]" + "\n"
 
-  if (!plain) return header.length > maxLength ? header.slice(0, maxLength) : header;
+  if (!plain) return [header.length > maxLength ? header.slice(0, maxLength) : header];
 
   const separator = "\n\n";
-  const available = maxLength - header.length - separator.length;
-  if (available <= 0) return header.slice(0, maxLength);
+  const firstLimit = Math.max(0, maxLength - header.length - separator.length - markerReserve);
+  if (firstLimit <= 0) return [header.slice(0, maxLength)];
 
-  const truncationMarker = "\n[truncated]";
-  let body = plain;
-  if (body.length > available) {
-    const sliceLength = Math.max(0, available - truncationMarker.length);
-    body = body.slice(0, sliceLength) + truncationMarker;
-  }
-
-  return header + separator + body;
+  const chunks = splitPlainIntoChunks(plain, firstLimit, maxLength - markerReserve);
+  const total = chunks.length;
+  return chunks.map((chunk, index) => {
+    if (total === 1) return header + separator + chunk;
+    const marker = `[part ${index + 1}/${total}]`;
+    if (index === 0) {
+      return header + separator + marker + "\n" + chunk;
+    }
+    return marker + "\n" + chunk;
+  });
 }
 
 export default {
@@ -112,21 +151,24 @@ export default {
       return new Response("Invalid JSON", { status: 400 });
     }
 
-    const discordPayload = {
-      content: summarizeToDiscordContent(payload),
-      // Prevent @everyone surprises if inbound data contains "@" somewhere
-      allowed_mentions: { parse: [] as string[] },
-    };
+    const contents = summarizeToDiscordContents(payload);
+    for (const content of contents) {
+      const discordPayload = {
+        content,
+        // Prevent @everyone surprises if inbound data contains "@" somewhere
+        allowed_mentions: { parse: [] as string[] },
+      };
 
-    const resp = await fetch(env.DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(discordPayload),
-    });
+      const resp = await fetch(env.DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(discordPayload),
+      });
 
-    if (!resp.ok) {
-      // Return non-2xx so CloudMailin retries webhook delivery
-      return new Response(`Discord error: ${resp.status}`, { status: 502 });
+      if (!resp.ok) {
+        // Return non-2xx so CloudMailin retries webhook delivery
+        return new Response(`Discord error: ${resp.status}`, { status: 502 });
+      }
     }
 
     return new Response("ok", { status: 200 });
