@@ -48,7 +48,7 @@ Subject: **Test Subject**
 Date: `Mon, 16 Jan 2012 17:00:01 +0000`
 Attachments: `2` (file.txt, file.txt)
 
-Test with HTML.
+This is a test email message.
 ```
 
 If the `plain` body exceeds Discord's 2,000 character limit, the worker sends multiple sequential Discord messages. Chunking happens on word boundaries when possible.

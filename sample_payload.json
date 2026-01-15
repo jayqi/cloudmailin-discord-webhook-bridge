@@ -33,8 +33,8 @@
     },
     "tls": true
   },
-  "plain": "Test with HTML.",
-  "html": "<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html; charset=ISO-8859-1\"></head><body\n bgcolor=\"#FFFFFF\" text=\"#000000\">\nTest with <span style=\"font-weight: bold;\">HTML</span>.<br>\n</body>\n</html>",
+  "plain": "This is a test email message.",
+  "html": "<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html; charset=ISO-8859-1\"></head><body\n bgcolor=\"#FFFFFF\" text=\"#000000\">\nThis is a test email message.<br>\n</body>\n</html>",
   "reply_plain": "Message reply if found.",
   "attachments": [
     {

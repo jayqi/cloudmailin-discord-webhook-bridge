@@ -36,11 +36,11 @@ const samplePayload = {
 		},
 		tls: true,
 	},
-	plain: 'Test with HTML.',
+	plain: 'This is a test email message.',
 	html: `<html><head>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1"></head><body
  bgcolor="#FFFFFF" text="#000000">
-Test with <span style="font-weight: bold;">HTML</span>.<br>
+This is a test email message.<br>
 </body>
 </html>`,
 	reply_plain: 'Message reply if found.',
@@ -68,7 +68,7 @@ const expectedDiscordContent = [
 	'Date: `Mon, 16 Jan 2012 17:00:01 +0000`',
 	'Attachments: `2` (file.txt, file.txt)',
 	'',
-	'Test with HTML.',
+	'This is a test email message.',
 ].join('\n');
 
 const BASIC_AUTH = 'user:mypass';
