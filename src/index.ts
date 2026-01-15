@@ -140,8 +140,8 @@ async function parseRetryAfterMs(resp: Response): Promise<number | null> {
   }
 
   try {
-    const body = await resp.clone().json();
-    const retryAfter = typeof body?.retry_after === "number" ? body.retry_after : null;
+    const body = (await resp.clone().json()) as { retry_after?: number };
+    const retryAfter = typeof body.retry_after === "number" ? body.retry_after : null;
     return retryAfter !== null ? Math.max(0, retryAfter * 1000) : null;
   } catch {
     return null;
